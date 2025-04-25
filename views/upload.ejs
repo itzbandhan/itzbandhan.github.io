@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Memories - Sandhu Journey</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .upload-container {
+      max-width: 800px;
+      margin: 3rem auto;
+      padding: 2rem;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    
+    .upload-container h1 {
+      font-family: var(--font-heading);
+      color: var(--primary-color);
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    
+    .back-link {
+      display: block;
+      margin-bottom: 1rem;
+      color: var(--dark-color);
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+    
+    .back-link:hover {
+      color: var(--primary-color);
+    }
+    
+    .back-link i {
+      margin-right: 5px;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .form-row .form-group {
+      flex: 1;
+    }
+    
+    .photo-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: #f9f9f9;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+    
+    .remove-photo-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: #ff6b6b;
+      color: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .remove-photo-btn:hover {
+      background: #ff5252;
+      transform: scale(1.1);
+    }
+    
+    .preview-container {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+    
+    .image-preview {
+      flex: 0 0 100px;
+      height: 100px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .image-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .btn-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="preloader">
+    <div class="preloader-content">
+      <h1>Welcome to The Sandhu Journey</h1>
+      <div class="loader"></div>
+    </div>
+  </div>
+
+  <div class="upload-container">
+    <a href="/" class="back-link">
+      <i class="fas fa-arrow-left"></i> Back to Timeline
+    </a>
+    
+    <h1>Upload New Memories</h1>
+    
+    <form action="/upload" method="POST" enctype="multipart/form-data" class="upload-form">
+      <div class="form-group">
+        <label for="title">Memory Title</label>
+        <input type="text" id="title" name="title" placeholder="Our Beach Trip" required>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label for="month">Month</label>
+          <select id="month" name="month" required>
+            <option value="">Select Month</option>
+            <option value="January">January</option>
+            <option value="February">February</option>
+            <option value="March">March</option>
+            <option value="April">April</option>
+            <option value="May">May</option>
+            <option value="June">June</option>
+            <option value="July">July</option>
+            <option value="August">August</option>
+            <option value="September">September</option>
+            <option value="October">October</option>
+            <option value="November">November</option>
+            <option value="December">December</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="year">Year</label>
+          <input type="number" id="year" name="year" min="2025" max="2030" required>
+        </div>
+      </div>
+      
+      <div class="form-group" id="photo-upload">
+        <label>Photos</label>
+        <div id="photo-inputs">
+          <div class="photo-input-group">
+            <input type="file" name="photos" accept="image/*" required>
+            <input type="text" name="captions" placeholder="Caption (optional)">
+            <div class="image-preview"></div>
+          </div>
+        </div>
+        <button type="button" id="add-photo-btn" class="btn-secondary">
+          <i class="fas fa-plus"></i> Add Another Photo
+        </button>
+      </div>
+      
+      <div class="btn-container">
+        <a href="/" class="btn-secondary">Cancel</a>
+        <button type="submit" class="btn-primary">
+          <i class="fas fa-cloud-upload-alt"></i> Upload Memories
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
+  <script>
+    // Preloader
+    window.addEventListener("load", () => {
+      // Force preloader to show for at least 3 seconds
+      const preloader = document.querySelector(".preloader");
+      const startTime = Date.now();
+      const minDisplayTime = 3000; // 3 seconds
+
+      function hidePreloader() {
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
+
+        setTimeout(() => {
+          gsap.to(preloader, {
+            opacity: 0,
+            duration: 0.5,
+            onComplete: () => {
+              preloader.style.display = "none";
+            },
+          });
+        }, remainingTime);
+      }
+
+      hidePreloader();
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+      const photoInputs = document.getElementById("photo-inputs");
+      const addPhotoBtn = document.getElementById("add-photo-btn");
+      const form = document.querySelector(".upload-form");
+
+      // Set default year to current year
+      const yearInput = document.getElementById("year");
+      yearInput.value = new Date().getFullYear();
+
+      // Set default month to current month
+      const monthSelect = document.getElementById("month");
+      const months = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      const currentMonth = new Date().getMonth();
+      monthSelect.value = months[currentMonth];
+
+      // Add new photo field
+      addPhotoBtn.addEventListener("click", function () {
+        const photoGroup = document.createElement("div");
+        photoGroup.className = "photo-input-group";
+        photoGroup.innerHTML = `
+          <input type="file" name="photos" accept="image/*" required>
+          <input type="text" name="captions" placeholder="Caption (optional)">
+          <button type="button" class="remove-photo-btn">
+            <i class="fas fa-times"></i>
+          </button>
+          <div class="image-preview"></div>
+        `;
+
+        photoInputs.appendChild(photoGroup);
+
+        // Add event listener for the new file input
+        const fileInput = photoGroup.querySelector('input[type="file"]');
+        fileInput.addEventListener("change", function () {
+          previewImage(this);
+        });
+
+        // Add remove functionality
+        photoGroup.querySelector(".remove-photo-btn").addEventListener("click", function () {
+          photoInputs.removeChild(photoGroup);
+        });
+        
+        // Animate the new group
+        gsap.from(photoGroup, {
+          opacity: 0,
+          y: 20,
+          duration: 0.5
+        });
+      });
+
+      // Image preview functionality
+      function previewImage(input) {
+        const previewContainer = input.closest(".photo-input-group").querySelector(".image-preview");
+        previewContainer.innerHTML = "";
+
+        if (input.files && input.files[0]) {
+          const reader = new FileReader();
+
+          reader.onload = function (e) {
+            const img = document.createElement("img");
+            img.src = e.target.result;
+            previewContainer.appendChild(img);
+            
+            gsap.from(img, {
+              opacity: 0,
+              scale: 0.5,
+              duration: 0.5,
+              ease: "back.out(1.7)"
+            });
+          };
+
+          reader.readAsDataURL(input.files[0]);
+        }
+      }
+
+      // Add preview to existing file inputs
+      document.querySelectorAll('input[type="file"]').forEach((input) => {
+        input.addEventListener("change", function () {
+          previewImage(this);
+        });
+      });
+
+      // Form submission validation
+      form.addEventListener("submit", function (e) {
+        const title = document.getElementById("title").value.trim();
+        if (!title) {
+          e.preventDefault();
+          alert("Please enter a title for this memory");
+          return;
+        }
+
+        // Validate at least one photo is selected
+        const fileInputs = document.querySelectorAll('input[type="file"]');
+        let hasFile = false;
+        fileInputs.forEach((input) => {
+          if (input.files && input.files[0]) {
+            hasFile = true;
+          }
+        });
+
+        if (!hasFile) {
+          e.preventDefault();
+          alert("Please select at least one photo");
+        }
+      });
+    });
+  </script>
+</body>
+</html>

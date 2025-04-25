@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= memory.title %> - Sandhu Journey</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .memory-detail {
+      max-width: 1000px;
+      margin: 3rem auto;
+      padding: 2rem;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    
+    .memory-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    .memory-header h1 {
+      font-family: var(--font-heading);
+      color: var(--primary-color);
+      margin-bottom: 0.5rem;
+    }
+    
+    .memory-header p {
+      color: var(--dark-color);
+      opacity: 0.7;
+    }
+    
+    .memory-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+    
+    .memory-photo {
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .memory-photo:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .memory-photo img {
+      width: 100%;
+      height: 300px;
+      object-fit: cover;
+      display: block;
+    }
+    
+    .photo-caption {
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+    
+    .memory-photo:hover .photo-caption {
+      transform: translateY(0);
+    }
+    
+    .back-btn {
+      display: inline-block;
+      margin-top: 2rem;
+      padding: 0.8rem 1.5rem;
+      background: var(--secondary-color);
+      color: white;
+      border-radius: 5px;
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+    
+    .back-btn:hover {
+      background: var(--primary-color);
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+  <div class="preloader">
+    <div class="preloader-content">
+      <h1>Welcome to The Sandhu Journey</h1>
+      <div class="loader"></div>
+    </div>
+  </div>
+
+  <div class="memory-detail">
+    <div class="memory-header">
+      <h1><%= memory.title %></h1>
+      <p><%= memory.month %> <%= memory.year %></p>
+    </div>
+    
+    <div class="memory-gallery">
+      <% memory.photos.forEach(photo => { %>
+        <div class="memory-photo">
+          <img src="<%= photo.url %>" alt="<%= memory.title %>">
+          <% if (photo.caption) { %>
+            <div class="photo-caption"><%= photo.caption %></div>
+          <% } %>
+        </div>
+      <% }); %>
+    </div>
+    
+    <a href="/" class="back-btn">
+      <i class="fas fa-arrow-left"></i> Back to Timeline
+    </a>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+  <script>
+    window.addEventListener("load", () => {
+      // Force preloader to show for at least 3 seconds
+      const preloader = document.querySelector(".preloader");
+      const startTime = Date.now();
+      const minDisplayTime = 3000; // 3 seconds
+
+      function hidePreloader() {
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
+
+        setTimeout(() => {
+          gsap.to(preloader, {
+            opacity: 0,
+            duration: 0.5,
+            onComplete: () => {
+              preloader.style.display = "none";
+            },
+          });
+        }, remainingTime);
+      }
+
+      hidePreloader();
+      
+      // Photo animations
+      gsap.from(".memory-photo", {
+        opacity: 0,
+        y: 30,
+        duration: 0.8,
+        stagger: 0.1,
+        ease: "power2.out"
+      });
+    });
+  </script>
+</body>
+</html> 

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sandhu Journey</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div class="preloader">
+    <div class="preloader-content">
+      <h1>Welcome to The Sandhu Journey</h1>
+      <div class="loader"></div>
+    </div>
+  </div>
+
+  <header class="header">
+    <h1>Our Journey</h1>
+    <div class="anniversary-counter">
+      <p>Together since <span id="months-together">0</span> months, <span id="days-together">0</span> days</p>
+    </div>
+  </header>
+
+  <main class="timeline-container">
+    <% if (memories.length === 0) { %>
+      <div class="empty-timeline">
+        <h2>No memories yet</h2>
+        <p>Start by adding your first memory!</p>
+        <a href="/upload" class="btn-primary">Add Your First Memory</a>
+      </div>
+    <% } else { %>
+      <div class="timeline">
+        <% memories.forEach((memory, index) => { %>
+          <div class="timeline-item" data-month="<%= memory.month %>-<%= memory.year %>">
+            <div class="timeline-content <%= index % 2 === 0 ? 'left' : 'right' %>">
+              <h2><%= memory.month %> <%= memory.year %></h2>
+              <h3><%= memory.title %></h3>
+              
+              <div class="photo-gallery">
+                <% memory.photos.slice(0, 4).forEach(photo => { %>
+                  <div class="photo-item">
+                    <img src="<%= photo.url %>" alt="Memory photo">
+                    <% if (photo.caption) { %>
+                      <p class="photo-caption"><%= photo.caption %></p>
+                    <% } %>
+                  </div>
+                <% }); %>
+              </div>
+              
+              <% if (memory.photos.length > 4) { %>
+                <div class="view-more">
+                  <a href="/memory/<%= memory._id %>" class="btn-secondary">
+                    View all <%= memory.photos.length %> photos
+                  </a>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </main>
+
+  <div id="congrats-modal" class="congrats-modal">
+    <div class="congrats-content">
+      <h2>Congratulations!</h2>
+      <p>You've been together for <span id="congrats-months">0</span> months and <span id="congrats-days">0</span> days!</p>
+      <div class="heart-animation">❤️</div>
+      <button id="close-congrats" class="btn-primary">Continue to Our Journey</button>
+    </div>
+  </div>
+
+  <a href="/upload" class="upload-btn" title="Add New Memories">
+    <i class="fas fa-plus"></i>
+  </a>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/ScrollTrigger.min.js"></script>
+  <script>
+    // Preloader
+    window.addEventListener("load", () => {
+      // Force preloader to show for at least 3 seconds
+      const preloader = document.querySelector(".preloader");
+      const startTime = Date.now();
+      const minDisplayTime = 3000; // 3 seconds
+
+      function hidePreloader() {
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
+
+        setTimeout(() => {
+          gsap.to(preloader, {
+            opacity: 0,
+            duration: 0.5,
+            onComplete: () => {
+              preloader.style.display = "none";
+              showCongratsIfNeeded();
+            },
+          });
+        }, remainingTime);
+      }
+
+      hidePreloader();
+    });
+
+    // Initialize GSAP animations
+    document.addEventListener("DOMContentLoaded", () => {
+      gsap.registerPlugin(ScrollTrigger);
+
+      // Timeline item animations
+      gsap.utils.toArray(".timeline-item").forEach((item) => {
+        gsap.from(item.querySelector('.timeline-content'), {
+          scrollTrigger: {
+            trigger: item,
+            start: "top 80%",
+            toggleActions: "play none none none",
+          },
+          opacity: 0,
+          x: item.querySelector('.timeline-content').classList.contains('left') ? -50 : 50,
+          duration: 0.8,
+          ease: "power2.out",
+        });
+      });
+
+      // Photo hover animations
+      gsap.utils.toArray(".photo-item").forEach((photo) => {
+        photo.addEventListener("mouseenter", () => {
+          gsap.to(photo.querySelector("img"), {
+            scale: 1.05,
+            duration: 0.3,
+          });
+        });
+
+        photo.addEventListener("mouseleave", () => {
+          gsap.to(photo.querySelector("img"), {
+            scale: 1,
+            duration: 0.3,
+          });
+        });
+      });
+
+      // Calculate relationship duration
+      const startDate = new Date("March 4, 2025");
+      const today = new Date();
+
+      const diffTime = Math.abs(today - startDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      let months = 0;
+      let days = 0;
+      
+      // Account for different month lengths
+      let tempDate = new Date(startDate);
+      while (true) {
+        tempDate.setMonth(tempDate.getMonth() + 1);
+        if (tempDate > today) {
+          // Calculate remaining days
+          tempDate.setMonth(tempDate.getMonth() - 1);
+          days = Math.floor((today - tempDate) / (1000 * 60 * 60 * 24));
+          break;
+        }
+        months++;
+      }
+
+      document.getElementById("months-together").textContent = months;
+      document.getElementById("days-together").textContent = days;
+      
+      document.getElementById("congrats-months").textContent = months;
+      document.getElementById("congrats-days").textContent = days;
+    });
+    
+    // Anniversary congratulations modal
+    function showCongratsIfNeeded() {
+      const startDate = new Date("March 4, 2025");
+      const today = new Date();
+      
+      const diffTime = Math.abs(today - startDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Show congrats on milestone days (monthly anniversary or 100 days or yearly)
+      const isMonthlyAnniversary = today.getDate() === 4; // 4th of any month
+      const isSpecialDay = diffDays === 100 || diffDays === 365;
+      
+      if (isMonthlyAnniversary || isSpecialDay) {
+        const modal = document.getElementById("congrats-modal");
+        modal.style.display = "flex";
+        
+        // Animate heart
+        gsap.to(".heart-animation", {
+          scale: 1.5,
+          duration: 0.8,
+          repeat: -1,
+          yoyo: true
+        });
+        
+        // Close button
+        document.getElementById("close-congrats").addEventListener("click", () => {
+          gsap.to(modal, {
+            opacity: 0,
+            duration: 0.5,
+            onComplete: () => {
+              modal.style.display = "none";
+              modal.style.opacity = 1;
+            }
+          });
+        });
+      }
+    }
+  </script>
+</body>
+</html>
