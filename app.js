@@ -26,15 +26,8 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Multer setup for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, "uploads"));
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
-});
+// Modify multer to use memory storage instead of disk storage
+const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage: storage,
@@ -90,23 +83,26 @@ mongoose.connection.on("disconnected", () => {
   console.log("⚠️ Mongoose disconnected");
 });
 
-// Create uploads directory if it doesn't exist
-const fs = require("fs");
-const uploadsDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
-
 // Routes
 app.use("/", require("./routes/memories"));
 
-// Error handling middleware
+// Modify the error handling middleware to be more informative
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Something broke! Please try again.');
+  console.error('Error details:', err);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+  });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+
+// Only start the server if we're not in a Vercel environment
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+}
+
+// Export the Express API
+module.exports = app;
