@@ -104,6 +104,7 @@
     <div class="memory-header">
       <h1><%= memory.title %></h1>
       <p><%= memory.month %> <%= memory.year %></p>
+       <p><small>Posted on: <%= memory.createdAt.toDateString() %></small></p>
     </div>
     
     <div class="memory-gallery">
