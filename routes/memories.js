@@ -3,13 +3,33 @@ const router = express.Router();
 const Memory = require("../models/Memory");
 const cloudinary = require("cloudinary").v2;
 const fs = require("fs");
-const path = require("path");
+
+// Month ordering helper
+const monthOrder = {
+  January: 1, February: 2, March: 3, April: 4,
+  May: 5, June: 6, July: 7, August: 8,
+  September: 9, October: 10, November: 11, December: 12
+};
+
+const months = Object.keys(monthOrder);
 
 // Homepage with timeline
 router.get("/", async (req, res) => {
   try {
-    const memories = await Memory.find().sort({ year: -1, month: 1 });
-    res.render("index", { memories });
+    let memories = await Memory.find();
+
+    // Sort by year, then by month order
+    memories.sort((a, b) => {
+      if (a.year !== b.year) {
+        return a.year - b.year; // ascending by year
+      }
+      return monthOrder[a.month] - monthOrder[b.month];
+    });
+
+    // Collect distinct years for dropdown
+    const years = [...new Set(memories.map(m => m.year))].sort();
+
+    res.render("index", { memories, years, months });
   } catch (err) {
     console.error(err);
     res.status(500).send("Server Error: " + err.message);
@@ -33,7 +53,6 @@ router.post("/upload", function(req, res, next) {
       const { title, month, year } = req.body;
       let captions = req.body.captions;
       
-      // If only one caption is provided, convert to array
       if (!Array.isArray(captions)) {
         captions = [captions];
       }
@@ -46,13 +65,11 @@ router.post("/upload", function(req, res, next) {
 
       const photos = [];
 
-      // Upload each photo to Cloudinary
       for (let i = 0; i < files.length; i++) {
         const result = await cloudinary.uploader.upload(files[i].path, {
           folder: "sandhu-journey",
         });
         
-        // Delete the file from local storage after upload
         fs.unlinkSync(files[i].path);
         
         photos.push({
@@ -62,12 +79,12 @@ router.post("/upload", function(req, res, next) {
         });
       }
 
-      // Create new memory
       const memory = new Memory({
         title,
         month,
         year,
         photos,
+        createdAt: new Date() // ensure createdAt exists
       });
 
       await memory.save();
@@ -85,6 +102,21 @@ router.get("/memory/:id", async (req, res) => {
     const memory = await Memory.findById(req.params.id);
     if (!memory) {
       return res.status(404).send("Memory not found");
+    }
+    res.render("memory-detail", { memory });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error: " + err.message);
+  }
+});
+
+// Get timeline by year + month (for search)
+router.get("/timeline/:year/:month", async (req, res) => {
+  try {
+    const { year, month } = req.params;
+    const memory = await Memory.findOne({ year, month });
+    if (!memory) {
+      return res.status(404).send("Album not found");
     }
     res.render("memory-detail", { memory });
   } catch (err) {
