@@ -28,6 +28,25 @@
       <p>Together since <span id="months-together">0</span> months, <span id="days-together">0</span> days</p>
     </div>
   </header>
+  <!-- Search Section -->
+<div id="searchSection" style="margin-top:20px; text-align:center;">
+    <button id="searchToggle" style="background:none; border:none; cursor:pointer; font-size:20px;">🔍</button>
+    <div id="searchForm" style="display:none; margin-top:10px;">
+        <select id="searchYear">
+            <option value="">Year</option>
+            <% years.forEach(function(y) { %>
+                <option value="<%= y %>"><%= y %></option>
+            <% }); %>
+        </select>
+        <select id="searchMonth">
+            <option value="">Month</option>
+            <% months.forEach(function(m) { %>
+                <option value="<%= m %>"><%= m %></option>
+            <% }); %>
+        </select>
+        <button onclick="searchAlbum()">Go</button>
+    </div>
+</div>
 
   <main class="timeline-container">
     <% if (memories.length === 0) { %>
@@ -111,6 +130,7 @@
       <h2>Congratulations!</h2>
       <p>You've been together for <span id="congrats-months">0</span> months and <span id="congrats-days">0</span> days!</p>
       <div class="heart-animation">❤️</div>
+      <br>
       <button id="close-congrats" class="btn-primary">Continue to Our Journey</button>
     </div>
   </div>
@@ -118,9 +138,23 @@
   <a href="/upload" class="upload-btn" title="Add New Memories">
     <i class="fas fa-plus"></i>
   </a>
-
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/ScrollTrigger.min.js"></script>
+  <script>
+document.getElementById("searchToggle").addEventListener("click", function() {
+    let form = document.getElementById("searchForm");
+    form.style.display = (form.style.display === "none") ? "block" : "none";
+});
+
+function searchAlbum() {
+    let y = document.getElementById("searchYear").value;
+    let m = document.getElementById("searchMonth").value;
+    if(y && m) {
+        window.location.href = `/timeline/${y}/${m}`;
+    }
+}
+</script>
   <script>
     // Preloader
     window.addEventListener("load", () => {
