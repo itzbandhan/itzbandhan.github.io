@@ -1,209 +1,720 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sallu ❤️ Bandhu Chat</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue, remove, set, update } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
-    import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyC8azD-z8Gk5ydARpqkMI0fr0q-KJeKgiQ",
-      authDomain: "sandhuchat-12429.firebaseapp.com",
-      databaseURL: "https://sandhuchat-12429-default-rtdb.firebaseio.com",
-      projectId: "sandhuchat-12429",
-      storageBucket: "sandhuchat-12429.firebasestorage.app",
-      messagingSenderId: "599206414772",
-      appId: "1:599206414772:web:a14d10675b003344838ae1",
-      measurementId: "G-7RM6S5CE3W"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    let currentUser = "";
-    const PASSWORD = "Sandhumarch042025";
-
-    window.addEventListener("load", async () => {
-      const savedUser = localStorage.getItem("chatUser");
-      if (savedUser) { currentUser = savedUser; showChat(); }
-    });
-
-    window.login = function () {
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value.trim();
-      if ((username.toLowerCase() === "sallu" || username.toLowerCase() === "bandhu") && password === PASSWORD) {
-        currentUser = username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
-        localStorage.setItem("chatUser", currentUser);
-        showChat();
-      } else {
-        document.getElementById("loginError").classList.remove("hidden");
-      }
-    };
-
-    window.logout = function(){ localStorage.removeItem("chatUser"); location.reload(); }
-
-    function showChat() {
-      document.getElementById("loginScreen").classList.add("hidden");
-      document.getElementById("chatScreen").classList.remove("hidden");
-      document.getElementById("chatHeader").innerText = currentUser === "Sallu" ? "Chat with Bandhu" : "Chat with Sallu";
-      loadMessages();
-      setupNotifications();
-    }
-
-    function loadMessages() {
-      const messagesRef = ref(db, "messages");
-      onValue(messagesRef, (snapshot) => {
-        const container = document.getElementById("messages");
-        container.innerHTML = "";
-        snapshot.forEach((childSnapshot) => {
-          const msg = childSnapshot.val();
-          const msgId = childSnapshot.key;
-          const isMe = msg.sender === currentUser;
-
-          const row = document.createElement("div");
-          row.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
-
-          const bubble = document.createElement("div");
-          bubble.className = `p-2 rounded-2xl max-w-[75%] shadow cursor-pointer ${isMe ? "bg-pink-200" : "bg-gray-200"}`;
-
-          // Double click to react
-          bubble.ondblclick = () => toggleReaction(msgId);
-
-          if (msg.type === "text") {
-            bubble.appendChild(Object.assign(document.createElement("p"), {textContent: msg.content}));
-          } else if (msg.type === "image") {
-            const img = document.createElement("img");
-            img.src = msg.content;
-            img.className = "max-w-full rounded-lg";
-            bubble.appendChild(img);
-          } else if (msg.type === "love") {
-            const heart = document.createElement("div");
-            heart.textContent = "❤️";
-            heart.className = "text-2xl text-pink-600";
-            bubble.appendChild(heart);
-          }
-
-          const meta = document.createElement("div");
-          meta.className = "text-[10px] opacity-70 mt-1";
-          meta.textContent = `${msg.sender} • ${new Date(msg.timestamp||Date.now()).toLocaleString()}`;
-          bubble.appendChild(meta);
-
-          if (isMe) {
-            const delBtn = document.createElement("button");
-            delBtn.textContent = "Delete";
-            delBtn.className = "ml-2 text-[10px] text-red-600 underline";
-            delBtn.onclick = () => remove(ref(db, "messages/" + msgId));
-            bubble.appendChild(delBtn);
-          }
-
-          row.appendChild(bubble);
-
-          // Reaction display
-          if (msg.reaction === "❤️") {
-  const reactionDiv = document.createElement("div");
-  reactionDiv.textContent = "❤️";
-  reactionDiv.className = `text-xs px-2 py-1 rounded-full inline-block mt-1 ${isMe ? "bg-pink-100 text-pink-700 mr-4" : "bg-gray-100 text-gray-700 ml-4"}`;
-  row.appendChild(reactionDiv);
-}
-
-
-          container.appendChild(row);
-        });
-        container.scrollTop = container.scrollHeight;
-      });
-    }
-
-    function toggleReaction(msgId) {
-      const msgRef = ref(db, "messages/" + msgId);
-      onValue(msgRef, (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        const newReaction = data.reaction === "❤️" ? null : "❤️";
-        update(msgRef, { reaction: newReaction });
-      }, { onlyOnce: true });
-    }
-
-    function saveMessage(type, content) {
-      const messagesRef = ref(db, "messages");
-      push(messagesRef, {
-        sender: currentUser,
-        type,
-        content,
-        timestamp: Date.now(),
-        reaction: null
-      });
-    }
-
-    window.sendMessage = function () {
-      const input = document.getElementById("messageInput");
-      const text = input.value.trim();
-      if (text) { saveMessage("text", text); input.value = ""; }
-    };
-
-    window.sendImage = function (event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => { saveMessage("image", e.target.result); };
-      reader.readAsDataURL(file);
-    };
-
-    window.sendLove = function () { saveMessage("love", "❤️"); };
-
-    // ---- Push Notifications (FCM) ----
-    async function setupNotifications(){
-      try{
-        if (!(await isSupported())) return; // Browser not supporting FCM
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        const messaging = getMessaging(app);
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") return;
-        const token = await getToken(messaging, {
-          vapidKey: "PASTE_YOUR_VAPID_PUBLIC_KEY_HERE",
-          serviceWorkerRegistration: registration
-        });
-        if (token){
-          await set(ref(db, `tokens/${currentUser}/${encodeURIComponent(token)}`), true);
-          // Foreground messages
-          onMessage(messaging, (payload) => {
-            const n = payload?.notification;
-            if (!n) return;
-            new Notification(n.title || "New message", { body: n.body || "", icon: "/chat-icon.png" });
-          });
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="title" content="The Sandhu Journey - A Love Story by Sallu & Bandhu">
+    <meta name="description"
+        content="Welcome to The Sandhu Journey - a beautiful story of love, memories, and moments shared by Sallu and Bandhu. Explore our journey through heartfelt apps, messages, and milestones.">
+    <meta name="keywords"
+        content="TheSandhuJourney, Sandhu Journey, Sallu and Bandhu, Sandhu love story, sandhu timeline, sallu bandhu, bandhan pokhrel, sandhu anniversary, love journey">
+    <meta name="author" content="Bandhan Pokhrel">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://salluandbandhu.me/">
+    <meta property="og:title" content="The Sandhu Journey - Sallu & Bandhu's Love Story">
+    <meta property="og:description"
+        content="Celebrate every moment of Sallu and Bandhu’s beautiful journey together. View timelines, upload memories, and cherish your love.">
+    <meta property="og:image" content="https://salluandbandhu.me/img/007.png">
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://salluandbandhu.me/">
+    <meta property="twitter:title" content="The Sandhu Journey - Sallu & Bandhu's Love Story">
+    <meta property="twitter:description"
+        content="The official timeline of Sallu and Bandhu. View our love, milestones, and shared memories.">
+    <meta property="twitter:image" content="https://salluandbandhu.me/img/007.png">
+    <title>TheSandhuJourney❤️</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Poppins', sans-serif;
         }
-      }catch(e){
-        console.error("FCM setup failed:", e);
-      }
-    }
-  </script>
+
+        body {
+            background: linear-gradient(135deg, #ffd1dc 0%, #ffa8c0 100%);
+            color: #8a0c42;
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Loader Styles */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, #ff6b8b, #ff6bb5, #ff8ccc);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .loader-content {
+            text-align: center;
+            color: white;
+        }
+
+        .film-lines {
+            font-size: 2.8rem;
+            margin-bottom: 2rem;
+            overflow: hidden;
+            height: 70px;
+            font-weight: 700;
+            text-shadow: 2px 2px 8px rgba(138, 12, 66, 0.4);
+        }
+
+        .film-line {
+            display: block;
+            animation: filmRoll 5s infinite;
+        }
+
+        .heart-loader {
+            font-size: 3.5rem;
+            animation: heartbeat 1.5s infinite;
+            margin-top: 2rem;
+            text-shadow: 2px 2px 8px rgba(138, 12, 66, 0.4);
+        }
+
+        /* Main Content Styles */
+        #main-content {
+            display: none;
+            opacity: 0;
+            transition: opacity 1s ease-in;
+        }
+
+        header {
+            text-align: center;
+            padding: 2.5rem 0;
+            background: linear-gradient(to right, #ff6b8b, #ff6bb5);
+            color: white;
+            box-shadow: 0 4px 20px rgba(138, 12, 66, 0.2);
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 6px rgba(138, 12, 66, 0.3);
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .counter-container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2.5rem;
+            margin: 2.5rem auto;
+            border-radius: 20px;
+            box-shadow: 0 8px 30px rgba(138, 12, 66, 0.15);
+            text-align: center;
+            max-width: 650px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .counter-title {
+            font-size: 2.2rem;
+            color: #8a0c42;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .counter {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #ff6b8b;
+            margin: 1.2rem 0;
+            text-shadow: 1px 1px 3px rgba(138, 12, 66, 0.2);
+            text-align: center;
+        }
+
+        .counter-label {
+            font-size: 1.2rem;
+            color: #8a0c42;
+            opacity: 0.8;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .websites-container {
+            padding: 2.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h2 {
+            text-align: center;
+            font-size: 2.8rem;
+            margin-bottom: 1rem;
+            color: #8a0c42;
+            font-weight: 800;
+            position: relative;
+            display: block;
+            width: 100%;
+        }
+
+        h2::after {
+            content: '';
+            display: block;
+            width: 200px;
+            height: 4px;
+            background: linear-gradient(to right, #ff6b8b, #ff6bb5);
+            border-radius: 2px;
+            margin: 0.8rem auto 0;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: #8a0c42;
+            margin-bottom: 2.5rem;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 2.2rem;
+            margin-top: 2.5rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(138, 12, 66, 0.15);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .card:hover {
+            transform: translateY(-12px);
+            box-shadow: 0 15px 35px rgba(138, 12, 66, 0.25);
+        }
+
+        .card-img {
+            height: 200px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .card-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .card:hover .card-img img {
+            transform: scale(1.1);
+        }
+
+        .card-content {
+            padding: 1.8rem;
+        }
+
+        .card h3 {
+            font-size: 1.6rem;
+            margin-bottom: 0.8rem;
+            color: #ff6b8b;
+            font-weight: 700;
+        }
+
+        .card p {
+            color: #8a0c42;
+            margin-bottom: 1.5rem;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+
+        /* Fancy Button Styles */
+        .button {
+            width: 180px;
+            height: 45px;
+            background-image: linear-gradient(#ff8ccc, #ff6bb5);
+            border: none;
+            border-radius: 50px;
+            color: white;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 1px 3px 0px #ff4ba3;
+            transition-duration: .3s;
+            font-size: 1rem;
+            margin: 0 auto;
+        }
+
+        .button:active {
+            transform: translate(2px, 0px);
+            box-shadow: 0px 1px 0px #ff4ba3;
+            padding-bottom: 1px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2.5rem;
+            margin-top: 4rem;
+            background: linear-gradient(to right, #ff6b8b, #ff6bb5);
+            color: white;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .confetti {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            pointer-events: none;
+            display: none;
+        }
+
+        .confetti-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2.5rem;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 15px 40px rgba(138, 12, 66, 0.25);
+            max-width: 500px;
+            width: 90%;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+        }
+
+        .confetti-content h2 {
+            color: #ff6b8b;
+            margin-bottom: 1.2rem;
+            font-size: 2.2rem;
+        }
+
+        .confetti-content p {
+            color: #8a0c42;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+
+        /* Animations */
+        @keyframes filmRoll {
+            0% {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+
+            10% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+
+            30% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+
+            40% {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+
+            100% {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+        }
+
+        @keyframes heartbeat {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.3);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.8rem;
+            }
+
+            .counter {
+                font-size: 2rem;
+            }
+
+            .film-lines {
+                font-size: 2.2rem;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h2 {
+                font-size: 2.3rem;
+            }
+
+            .counter-container,
+            .websites-container {
+                padding: 1.8rem;
+                margin: 1.8rem;
+            }
+
+            .counter-title {
+                font-size: 1.8rem;
+            }
+        }
+
+        /* iOS-style elements */
+        .ios-toggle {
+            position: relative;
+            display: inline-block;
+            width: 51px;
+            height: 31px;
+            margin: 0 10px;
+        }
+
+        .ios-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ff8ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 27px;
+            width: 27px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #ff6bb5;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Decorative elements */
+        .floating-hearts {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .floating-heart {
+            position: absolute;
+            font-size: 1.5rem;
+            opacity: 0.3;
+            animation: float 8s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0) rotate(0deg);
+            }
+
+            50% {
+                transform: translateY(-20px) rotate(10deg);
+            }
+
+            100% {
+                transform: translateY(0) rotate(0deg);
+            }
+        }
+    </style>
 </head>
-<body class="bg-pink-50 h-screen w-screen flex items-center justify-center">
 
-  <div id="loginScreen" class="bg-white p-6 rounded-xl shadow-lg w-80">
-    <h2 class="text-2xl font-bold text-center mb-4">Login</h2>
-    <input id="username" type="text" placeholder="Enter name (Sallu/Bandhu)" class="w-full p-2 mb-3 border rounded" />
-    <input id="password" type="password" placeholder="Password" class="w-full p-2 mb-3 border rounded" />
-    <button onclick="login()" class="w-full bg-pink-500 text-white p-2 rounded hover:bg-pink-600">Login</button>
-    <p id="loginError" class="text-red-500 text-sm mt-2 hidden">Invalid credentials!</p>
-  </div>
+<body>
+    <!-- Floating hearts background -->
+    <div class="floating-hearts">
+        <div class="floating-heart" style="top: 10%; left: 5%;">❤️</div>
+        <div class="floating-heart" style="top: 20%; left: 90%;">❤️</div>
+        <div class="floating-heart" style="top: 40%; left: 15%;">❤️</div>
+        <div class="floating-heart" style="top: 60%; left: 85%;">❤️</div>
+        <div class="floating-heart" style="top: 80%; left: 10%;">❤️</div>
+        <div class="floating-heart" style="top: 30%; left: 75%;">❤️</div>
+    </div>
 
-  <div id="chatScreen" class="hidden flex flex-col h-full w-full max-w-lg bg-white shadow-lg">
-    <div class="bg-pink-500 text-white p-4 flex items-center justify-between font-bold relative">
-      <div id="chatHeader" class="text-center w-full"></div>
-      <button onclick="logout()" title="Logout" class="absolute right-4 text-white/90 text-sm underline">Logout</button>
+    <!-- Loader Section -->
+    <div id="loader">
+        <div class="loader-content">
+            <div class="film-lines">
+                <span class="film-line">The Sandhu Journey</span>
+                <span class="film-line">Sallu & Bandhu</span>
+                <span class="film-line">A Love Story</span>
+                <span class="film-line">Together Forever</span>
+                <span class="film-line">Est. March 04, 2025</span>
+            </div>
+            <div class="heart-loader">❤️</div>
+        </div>
     </div>
-    <div id="messages" class="flex-1 p-4 overflow-y-auto space-y-3"></div>
-    <div class="p-3 border-t flex items-center gap-2">
-      <input id="messageInput" type="text" placeholder="Type a message..." class="flex-1 p-2 border rounded" />
-      <input id="imageInput" type="file" accept="image/*" class="hidden" onchange="sendImage(event)" />
-      <button onclick="document.getElementById('imageInput').click()" class="bg-gray-200 p-2 rounded">📷</button>
-      <button onclick="sendLove()" class="bg-pink-200 p-2 rounded">❤️</button>
-      <button onclick="sendMessage()" class="bg-pink-500 text-white p-2 rounded">Send</button>
+
+    <!-- Main Content -->
+    <div id="main-content">
+        <header>
+            <h1>The Sandhu Journey</h1>
+            <p class="subtitle">Sallu & Bandhu - Together Since March 04, 2025</p>
+        </header>
+
+        <div class="counter-container">
+            <h2 class="counter-title">Your Journey Together</h2>
+            <div class="counter" id="love-counter">0 months and 0 days</div>
+            <p class="counter-label">Every day is a new chapter in your love story</p>
+        </div>
+
+        <div class="websites-container">
+            <h2>TheSandhuExperience</h2>
+            <p class="section-subtitle">Explore the sandhu apps.</p>
+            <div class="cards-grid" id="website-cards">
+                <!-- Cards will be generated by JavaScript -->
+            </div>
+        </div>
+
+        <footer>
+            <p>Made with love just for my dearest Sallu ❤️</p>
+        </footer>
     </div>
-  </div>
+
+    <!-- Confetti Celebration -->
+    <div class="confetti" id="confetti"></div>
+
+    <script>
+        // Relationship start date (March 04, 2025)
+        const RELATIONSHIP_START = new Date('2025-03-04T00:00:00');
+
+        // Website data - you can customize these
+        // chat, monthsary, truthdare, sandhu, upload, main
+        const websites = [
+            {
+                title: "TheSandhuJourney - timeline",
+                description: "A collection of our precious moments together",
+                image: "img/001.png",
+                link: "https://sandhu.bandhanpokhrel.com.np/"
+
+            },
+            {
+                title: "Upload - TheSandhuJourney",
+                description: "Upload memories to the timeline",
+                image: "img/002.png",
+                // image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=700&q=80",
+                link: "https://upload.bandhanpokhrel.com.np/"
+
+            },
+            {
+                title: "Monthsary",
+                description: "Wishes to my sallu baby",
+                image: "img/003.png",
+                link: "https://monthsary.bandhanpokhrel.com.np/"
+
+            },
+            {
+                title: "TheSandhuChat",
+                description: "Our personal chat application exclusive only for sallu and bandhu.",
+                image: "img/004.png",
+                link: "https://chat.bandhanpokhrel.com.np/"
+            },
+            {
+                title: "Truth or Dare",
+                description: "Truth or dare game for us to play.",
+                image: "img/005.png",
+                link: "https://truthdare.bandhanpokhrel.com.np/"
+            },
+            {
+                title: "Main website",
+                description: "Main website of bandhu",
+                image: "img/006.png",
+                link: "https://bandhanpokhrel.com.np/"
+            }
+        ];
+
+        // Show loader for 5 seconds then display main content
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(function () {
+                document.getElementById('loader').style.opacity = '0';
+                setTimeout(function () {
+                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('main-content').style.display = 'block';
+                    setTimeout(function () {
+                        document.getElementById('main-content').style.opacity = '1';
+                    }, 50);
+                }, 500);
+            }, 5000);
+
+            // Initialize the website cards
+            initWebsiteCards();
+
+            // Start the love counter
+            updateLoveCounter();
+            setInterval(updateLoveCounter, 1000);
+
+            // Check for monthly anniversary
+            checkMonthlyAnniversary();
+        });
+
+        // Initialize website cards
+        function initWebsiteCards() {
+
+            const cardsContainer = document.getElementById('website-cards');
+            websites.forEach(site => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+            <div class="card-img">
+                <img src="${site.image}" alt="${site.title}">
+            </div>
+            <div class="card-content">
+                <h3>${site.title}</h3>
+                <p>${site.description}</p>
+                <button class="button">
+                    <span>Visit</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        `;
+
+                // Add click event to button (open in new tab)
+                const button = card.querySelector('.button');
+                button.addEventListener('click', function (e) {
+                    e.stopPropagation(); // prevent card click
+                    window.open(site.link, '_blank');
+                });
+
+                // Add click event to entire card (also open in new tab)
+                card.addEventListener('click', function () {
+                    window.open(site.link, '_blank');
+                });
+
+                cardsContainer.appendChild(card);
+            });
+        }
+
+        // Update the love counter
+        function updateLoveCounter() {
+            const now = new Date();
+            const diffTime = Math.abs(now - RELATIONSHIP_START);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const diffMonths = Math.floor(diffDays / 30.44); // Average month length
+
+            const remainingDays = diffDays % 30;
+
+            document.getElementById('love-counter').textContent =
+                `${diffMonths} months and ${remainingDays} days`;
+        }
+
+        // Check for monthly anniversary and show confetti
+        function checkMonthlyAnniversary() {
+            const now = new Date();
+            const diffTime = Math.abs(now - RELATIONSHIP_START);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            // Check if it's a monthly anniversary (every 30 days)
+            if (diffDays > 0 && diffDays % 30 === 0) {
+                showConfetti();
+            }
+        }
+
+        // Show confetti celebration
+        function showConfetti() {
+            const confetti = document.getElementById('confetti');
+            confetti.innerHTML = `
+                <div class="confetti-content">
+                    <h2>Congratulations!</h2>
+                    <p>You've completed another month of your remarkable journey together! 🎉</p>
+                    <button class="button" onclick="document.getElementById('confetti').style.display='none'">
+                        <span>Continue</span>
+                        <i class="fas fa-heart"></i>
+                    </button>
+                </div>
+            `;
+            confetti.style.display = 'block';
+
+            // Create confetti elements
+            for (let i = 0; i < 100; i++) {
+                const confettiPiece = document.createElement('div');
+                confettiPiece.style.position = 'absolute';
+                confettiPiece.style.width = '15px';
+                confettiPiece.style.height = '15px';
+                confettiPiece.style.backgroundColor = getRandomColor();
+                confettiPiece.style.left = Math.random() * 100 + 'vw';
+                confettiPiece.style.animation = `fall ${Math.random() * 3 + 2}s linear forwards`;
+                confettiPiece.style.borderRadius = '50%';
+                confetti.appendChild(confettiPiece);
+            }
+        }
+
+        // Helper function to get random colors for confetti
+        function getRandomColor() {
+            const colors = ['#ff6b8b', '#ff6bb5', '#ff8ccc', '#ff4ba3', '#ff9dc5', '#ff6b9d'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        // Add CSS for falling confetti
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fall {
+                to {
+                    transform: translateY(100vh) rotate(360deg);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
+
 </html>
