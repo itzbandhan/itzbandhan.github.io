@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="title" content="The Sandhu Journey - A Love Story by Sallu & Bandhu">
     <meta name="description"
         content="Welcome to The Sandhu Journey - a beautiful story of love, memories, and moments shared by Sallu and Bandhu. Explore our journey through heartfelt apps, messages, and milestones.">
@@ -14,7 +14,7 @@
     <meta property="og:url" content="https://salluandbandhu.me/">
     <meta property="og:title" content="The Sandhu Journey - Sallu & Bandhu's Love Story">
     <meta property="og:description"
-        content="Celebrate every moment of Sallu and Bandhu’s beautiful journey together. View timelines, upload memories, and cherish your love.">
+        content="Celebrate every moment of Sallu and Bandhu's beautiful journey together. View timelines, upload memories, and cherish your love.">
     <meta property="og:image" content="https://salluandbandhu.me/img/007.png">
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://salluandbandhu.me/">
@@ -40,6 +40,18 @@
             line-height: 1.6;
             overflow-x: hidden;
             min-height: 100vh;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Prevent text selection */
+        body,
+        .card,
+        .button {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
 
         /* Loader Styles */
@@ -167,6 +179,9 @@
             position: relative;
             display: block;
             width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            text-align: center;
         }
 
         h2::after {
@@ -264,6 +279,7 @@
             transition-duration: .3s;
             font-size: 1rem;
             margin: 0 auto;
+            touch-action: manipulation;
         }
 
         .button:active {
@@ -474,6 +490,21 @@
 
             100% {
                 transform: translateY(0) rotate(0deg);
+            }
+        }
+
+        @media (max-width: 768px) {
+            h2 {
+                font-size: 2rem;
+                /* smaller font for tablets */
+            }
+        }
+
+        @media (max-width: 480px) {
+            h2 {
+                font-size: 1.6rem;
+                /* smaller font for mobiles */
+                line-height: 1.2;
             }
         }
     </style>
