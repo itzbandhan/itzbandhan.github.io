@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sallu ❤️ Bandhu Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue, remove, set, update } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
+    import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC8azD-z8Gk5ydARpqkMI0fr0q-KJeKgiQ",
+      authDomain: "sandhuchat-12429.firebaseapp.com",
+      databaseURL: "https://sandhuchat-12429-default-rtdb.firebaseio.com",
+      projectId: "sandhuchat-12429",
+      storageBucket: "sandhuchat-12429.firebasestorage.app",
+      messagingSenderId: "599206414772",
+      appId: "1:599206414772:web:a14d10675b003344838ae1",
+      measurementId: "G-7RM6S5CE3W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let currentUser = "";
+    const PASSWORD = "Sandhumarch042025";
+
+    window.addEventListener("load", async () => {
+      const savedUser = localStorage.getItem("chatUser");
+      if (savedUser) { currentUser = savedUser; showChat(); }
+    });
+
+    window.login = function () {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      if ((username.toLowerCase() === "sallu" || username.toLowerCase() === "bandhu") && password === PASSWORD) {
+        currentUser = username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
+        localStorage.setItem("chatUser", currentUser);
+        showChat();
+      } else {
+        document.getElementById("loginError").classList.remove("hidden");
+      }
+    };
+
+    window.logout = function(){ localStorage.removeItem("chatUser"); location.reload(); }
+
+    function showChat() {
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("chatScreen").classList.remove("hidden");
+      document.getElementById("chatHeader").innerText = currentUser === "Sallu" ? "Chat with Bandhu" : "Chat with Sallu";
+      loadMessages();
+      setupNotifications();
+    }
+
+    function loadMessages() {
+      const messagesRef = ref(db, "messages");
+      onValue(messagesRef, (snapshot) => {
+        const container = document.getElementById("messages");
+        container.innerHTML = "";
+        snapshot.forEach((childSnapshot) => {
+          const msg = childSnapshot.val();
+          const msgId = childSnapshot.key;
+          const isMe = msg.sender === currentUser;
+
+          const row = document.createElement("div");
+          row.className = `flex flex-col ${isMe ? "items-end" : "items-start"}`;
+
+          const bubble = document.createElement("div");
+          bubble.className = `p-2 rounded-2xl max-w-[75%] shadow cursor-pointer ${isMe ? "bg-pink-200" : "bg-gray-200"}`;
+
+          // Double click to react
+          bubble.ondblclick = () => toggleReaction(msgId);
+
+          if (msg.type === "text") {
+            bubble.appendChild(Object.assign(document.createElement("p"), {textContent: msg.content}));
+          } else if (msg.type === "image") {
+            const img = document.createElement("img");
+            img.src = msg.content;
+            img.className = "max-w-full rounded-lg";
+            bubble.appendChild(img);
+          } else if (msg.type === "love") {
+            const heart = document.createElement("div");
+            heart.textContent = "❤️";
+            heart.className = "text-2xl text-pink-600";
+            bubble.appendChild(heart);
+          }
+
+          const meta = document.createElement("div");
+          meta.className = "text-[10px] opacity-70 mt-1";
+          meta.textContent = `${msg.sender} • ${new Date(msg.timestamp||Date.now()).toLocaleString()}`;
+          bubble.appendChild(meta);
+
+          if (isMe) {
+            const delBtn = document.createElement("button");
+            delBtn.textContent = "Delete";
+            delBtn.className = "ml-2 text-[10px] text-red-600 underline";
+            delBtn.onclick = () => remove(ref(db, "messages/" + msgId));
+            bubble.appendChild(delBtn);
+          }
+
+          row.appendChild(bubble);
+
+          // Reaction display
+          if (msg.reaction === "❤️") {
+  const reactionDiv = document.createElement("div");
+  reactionDiv.textContent = "❤️";
+  reactionDiv.className = `text-xs px-2 py-1 rounded-full inline-block mt-1 ${isMe ? "bg-pink-100 text-pink-700 mr-4" : "bg-gray-100 text-gray-700 ml-4"}`;
+  row.appendChild(reactionDiv);
+}
+
+
+          container.appendChild(row);
+        });
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+
+    function toggleReaction(msgId) {
+      const msgRef = ref(db, "messages/" + msgId);
+      onValue(msgRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        const newReaction = data.reaction === "❤️" ? null : "❤️";
+        update(msgRef, { reaction: newReaction });
+      }, { onlyOnce: true });
+    }
+
+    function saveMessage(type, content) {
+      const messagesRef = ref(db, "messages");
+      push(messagesRef, {
+        sender: currentUser,
+        type,
+        content,
+        timestamp: Date.now(),
+        reaction: null
+      });
+    }
+
+    window.sendMessage = function () {
+      const input = document.getElementById("messageInput");
+      const text = input.value.trim();
+      if (text) { saveMessage("text", text); input.value = ""; }
+    };
+
+    window.sendImage = function (event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => { saveMessage("image", e.target.result); };
+      reader.readAsDataURL(file);
+    };
+
+    window.sendLove = function () { saveMessage("love", "❤️"); };
+
+    // ---- Push Notifications (FCM) ----
+    async function setupNotifications(){
+      try{
+        if (!(await isSupported())) return; // Browser not supporting FCM
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const messaging = getMessaging(app);
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+        const token = await getToken(messaging, {
+          vapidKey: "PASTE_YOUR_VAPID_PUBLIC_KEY_HERE",
+          serviceWorkerRegistration: registration
+        });
+        if (token){
+          await set(ref(db, `tokens/${currentUser}/${encodeURIComponent(token)}`), true);
+          // Foreground messages
+          onMessage(messaging, (payload) => {
+            const n = payload?.notification;
+            if (!n) return;
+            new Notification(n.title || "New message", { body: n.body || "", icon: "/chat-icon.png" });
+          });
+        }
+      }catch(e){
+        console.error("FCM setup failed:", e);
+      }
+    }
+  </script>
+</head>
+<body class="bg-pink-50 h-screen w-screen flex items-center justify-center">
+
+  <div id="loginScreen" class="bg-white p-6 rounded-xl shadow-lg w-80">
+    <h2 class="text-2xl font-bold text-center mb-4">Login</h2>
+    <input id="username" type="text" placeholder="Enter name (Sallu/Bandhu)" class="w-full p-2 mb-3 border rounded" />
+    <input id="password" type="password" placeholder="Password" class="w-full p-2 mb-3 border rounded" />
+    <button onclick="login()" class="w-full bg-pink-500 text-white p-2 rounded hover:bg-pink-600">Login</button>
+    <p id="loginError" class="text-red-500 text-sm mt-2 hidden">Invalid credentials!</p>
+  </div>
+
+  <div id="chatScreen" class="hidden flex flex-col h-full w-full max-w-lg bg-white shadow-lg">
+    <div class="bg-pink-500 text-white p-4 flex items-center justify-between font-bold relative">
+      <div id="chatHeader" class="text-center w-full"></div>
+      <button onclick="logout()" title="Logout" class="absolute right-4 text-white/90 text-sm underline">Logout</button>
+    </div>
+    <div id="messages" class="flex-1 p-4 overflow-y-auto space-y-3"></div>
+    <div class="p-3 border-t flex items-center gap-2">
+      <input id="messageInput" type="text" placeholder="Type a message..." class="flex-1 p-2 border rounded" />
+      <input id="imageInput" type="file" accept="image/*" class="hidden" onchange="sendImage(event)" />
+      <button onclick="document.getElementById('imageInput').click()" class="bg-gray-200 p-2 rounded">📷</button>
+      <button onclick="sendLove()" class="bg-pink-200 p-2 rounded">❤️</button>
+      <button onclick="sendMessage()" class="bg-pink-500 text-white p-2 rounded">Send</button>
+    </div>
+  </div>
+</body>
+</html>
